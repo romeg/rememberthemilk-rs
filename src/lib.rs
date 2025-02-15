@@ -488,6 +488,12 @@ struct SetURLResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct ScriptsRunResponse {
+    stat: Stat,
+    execution: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct AddTaskResponse {
     stat: Stat,
     transaction: Option<Transaction>,
@@ -950,6 +956,36 @@ impl API {
             }
         } else {
             bail!("Unable to fetch tasks")
+        }
+    }
+
+    /// Run a MilkScript script.
+    ///
+    /// * `timeline`: a timeline as retrieved using [API::get_timeline]
+    /// * `script_id`: identify of the script.
+    ///
+    /// Requires a valid user authentication token.
+    pub async fn scripts_run(&self, timeline: &RTMTimeline, script_id: &str) -> Result<(), Error> {
+        if let Some(ref tok) = self.token {
+            let params = &[
+                ("method", "rtm.scripts.run"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+                ("timeline", &timeline.0),
+                ("script_id", &script_id),
+            ];
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), params)
+                .await?;
+            let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
+            if let Stat::Ok = rsp.stat {
+                Ok(())
+            } else {
+                bail!("Error running script")
+            }
+        } else {
+            bail!("Unable to run script")
         }
     }
 
