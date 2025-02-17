@@ -987,6 +987,7 @@ impl API {
             let response = self
                 .make_authenticated_request(&self.get_rest_url(), params)
                 .await?;
+            log::info!("make_authenticated_request: response body={}", response);
             let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
 
             if let Stat::Ok = rsp.stat {
