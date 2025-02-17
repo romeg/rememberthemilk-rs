@@ -494,6 +494,32 @@ struct ScriptsRunResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct ScriptsListResponse {
+    stat: Stat,
+    scripts: ScriptContainer,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct ScriptContainer {
+    script: Vec<RTMScript>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Default)]
+/// Represents a script in Remember The Milk.
+pub struct RTMScript {
+    /// Unique identifier for the script.
+    id: String,
+    /// Name of the script.
+    name: String,
+    /// Code of the script.
+    code: String,
+    /// Date and time when the script was created.
+    created: DateTime<Utc>,
+    /// Date and time when the script was last modified.
+    modified: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct Execution {
     pub id: String,
 }
@@ -995,6 +1021,35 @@ impl API {
             //} else {
             //    bail!("Error running scripts {}", response)
             //}
+        } else {
+            bail!("Unable to run script")
+        }
+    }
+
+    /// Run a MilkScript script.
+    ///
+    /// * `timeline`: a timeline as retrieved using [API::get_timeline]
+    /// * `script_id`: identify of the script.
+    ///
+    /// Requires a valid user authentication token.
+    pub async fn scripts_list(&self) -> Result<Vec<RTMScript>, Error> {
+        if let Some(ref tok) = self.token {
+            let params = &[
+                ("method", "rtm.scripts.getList"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+            ];
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), params)
+                .await?;
+            let rsp = from_str::<RTMResponse<ScriptsListResponse>>(&response)?.rsp;
+
+            if let Stat::Ok = rsp.stat {
+                Ok(rsp.scripts.script)
+            } else {
+                bail!("Error running scripts {}", response)
+            }
         } else {
             bail!("Unable to run script")
         }
