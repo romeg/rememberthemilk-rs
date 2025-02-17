@@ -490,12 +490,12 @@ struct SetURLResponse {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct ScriptsRunResponse {
     pub stat: Stat,
-    pub execution: Option<Execution>,
+    pub execution: Execution,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct Execution {
-    pub id: Option<String>,
+    pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -970,7 +970,11 @@ impl API {
     /// * `script_id`: identify of the script.
     ///
     /// Requires a valid user authentication token.
-    pub async fn scripts_run(&self, timeline: &RTMTimeline, script_id: &str) -> Result<(), Error> {
+    pub async fn scripts_run(
+        &self,
+        timeline: &RTMTimeline,
+        script_id: &str,
+    ) -> Result<String, Error> {
         if let Some(ref tok) = self.token {
             let params = &[
                 ("method", "rtm.scripts.run"),
@@ -984,10 +988,11 @@ impl API {
                 .make_authenticated_request(&self.get_rest_url(), params)
                 .await?;
             let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
+
             if let Stat::Ok = rsp.stat {
-                Ok(())
+                Ok(rsp.execution.id)
             } else {
-                bail!("Error running script")
+                bail!("Error running script {}", response)
             }
         } else {
             bail!("Unable to run script")
