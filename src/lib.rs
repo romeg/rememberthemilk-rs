@@ -992,7 +992,7 @@ impl API {
             if let Stat::Ok = rsp.stat {
                 Ok(rsp.execution.id)
             } else {
-                bail!("Error running script {}", response)
+                bail!("Error running scripts {}", response)
             }
         } else {
             bail!("Unable to run script")
