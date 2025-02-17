@@ -508,15 +508,15 @@ struct ScriptContainer {
 /// Represents a script in Remember The Milk.
 pub struct RTMScript {
     /// Unique identifier for the script.
-    id: String,
+    pub id: String,
     /// Name of the script.
-    name: String,
+    pub name: String,
     /// Code of the script.
-    code: String,
+    pub code: String,
     /// Date and time when the script was created.
-    created: DateTime<Utc>,
+    pub created: DateTime<Utc>,
     /// Date and time when the script was last modified.
-    modified: DateTime<Utc>,
+    pub modified: DateTime<Utc>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
