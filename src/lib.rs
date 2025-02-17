@@ -581,6 +581,11 @@ impl API {
     }
 
     #[cfg(test)]
+    ///
+    /// Create a new rememberthemilk API instance, with no user associated.
+    ///
+    /// The `api_key` and `api_secret` are for authenticating the application.
+    /// They can be [requested from rememberthemilk](https://www.rememberthemilk.com/services/api/).
     pub fn new_test(api_key: String, api_secret: String, server: mockito::ServerGuard) -> API {
         API {
             api_key,
@@ -610,6 +615,9 @@ impl API {
     }
 
     #[cfg(test)]
+    ///
+    /// The `config` will usually be generated from a previous session, where
+    /// [API::to_config] was used to save the session state.
     pub fn from_config_test(config: RTMConfig, server: mockito::ServerGuard) -> API {
         API {
             api_key: config.api_key.unwrap(),
@@ -1013,14 +1021,14 @@ impl API {
             let response = self
                 .make_authenticated_request(&self.get_rest_url(), params)
                 .await?;
-            Ok(response)
-            //let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
 
-            //if let Stat::Ok = rsp.stat {
-            //    Ok(rsp.execution.id)
-            //} else {
-            //    bail!("Error running scripts {}", response)
-            //}
+            let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
+
+            if let Stat::Ok = rsp.stat {
+                Ok(rsp.execution.id)
+            } else {
+                bail!("Error running scripts {}", response)
+            }
         } else {
             bail!("Unable to run script")
         }
