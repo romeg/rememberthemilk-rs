@@ -489,8 +489,13 @@ struct SetURLResponse {
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct ScriptsRunResponse {
-    stat: Stat,
-    execution: String,
+    pub stat: Stat,
+    pub execution: Vec<Execution>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct Execution {
+    pub id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
