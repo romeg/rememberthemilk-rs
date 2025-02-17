@@ -987,14 +987,14 @@ impl API {
             let response = self
                 .make_authenticated_request(&self.get_rest_url(), params)
                 .await?;
-            log::info!("make_authenticated_request: response body={}", response);
-            let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
+            Ok(response)
+            //let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
 
-            if let Stat::Ok = rsp.stat {
-                Ok(rsp.execution.id)
-            } else {
-                bail!("Error running scripts {}", response)
-            }
+            //if let Stat::Ok = rsp.stat {
+            //    Ok(rsp.execution.id)
+            //} else {
+            //    bail!("Error running scripts {}", response)
+            //}
         } else {
             bail!("Unable to run script")
         }
