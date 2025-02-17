@@ -490,13 +490,11 @@ struct SetURLResponse {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct ScriptsRunResponse {
     pub stat: Stat,
-    #[serde(deserialize_with = "empty_string_as_none")]
-    pub execution: Option<Vec<Execution>>,
+    pub execution: Option<Execution>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct Execution {
-    #[serde(deserialize_with = "empty_string_as_none")]
     pub id: Option<String>,
 }
 
