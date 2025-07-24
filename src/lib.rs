@@ -543,6 +543,12 @@ struct RTMResponse<T> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct AddNoteResponse {
+    stat: Stat,
+    note: RTMNote,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct TimelineResponse {
     stat: Stat,
     timeline: String,
@@ -1172,6 +1178,14 @@ impl API {
     }
 
     /// Set a task's due date.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeline` - A valid timeline
+    /// * `list_id` - The id of the list containing the task
+    /// * `taskseries_id` - The id of the task series
+    /// * `task_id` - The id of the task
+    /// * `due` - The due date
     pub async fn set_due_date(
         &self,
         timeline: &RTMTimeline,
@@ -1220,6 +1234,60 @@ impl API {
             }
         } else {
             bail!("Unable to fetch tasks")
+        }
+    }
+
+    /// Adds a note to a task.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeline` - A valid timeline
+    /// * `list_id` - The id of the list containing the task
+    /// * `taskseries_id` - The id of the task series
+    /// * `task_id` - The id of the task
+    /// * `note_title` - The title of the note
+    /// * `note_text` - The body text of the note
+    ///
+    /// # Returns
+    ///
+    /// If successful, returns the created note.
+    pub async fn add_note(
+        &self,
+        timeline: &RTMTimeline,
+        list_id: &str,
+        taskseries_id: &str,
+        task_id: &str,
+        note_title: &str,
+        note_text: &str,
+    ) -> Result<RTMNote, Error> {
+        if let Some(ref tok) = self.token {
+            let params = vec![
+                ("method", "rtm.tasks.notes.add"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+                ("timeline", &timeline.0),
+                ("list_id", list_id),
+                ("taskseries_id", taskseries_id),
+                ("task_id", task_id),
+                ("note_title", note_title),
+                ("note_text", note_text),
+            ];
+
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), &params)
+                .await?;
+            log::trace!("Add note response: {}", response);
+
+            let rsp = from_str::<RTMResponse<AddNoteResponse>>(&response)?.rsp;
+
+            if let Stat::Ok = rsp.stat {
+                Ok(rsp.note)
+            } else {
+                bail!("Error adding note")
+            }
+        } else {
+            bail!("Unable to add note: not authenticated")
         }
     }
 }
