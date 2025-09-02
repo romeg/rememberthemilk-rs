@@ -372,6 +372,8 @@ pub struct Task {
     #[serde(deserialize_with = "empty_string_as_none")]
     /// The date/time when this task was completed
     pub completed: Option<DateTime<Utc>>,
+    /// The task's priority
+    pub priority: String,
 }
 
 /// Describes how much time is left to complete this task, or perhaps
@@ -480,6 +482,49 @@ struct AddTagResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct SetURLResponse {
+    stat: Stat,
+    list: RTMLists,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct ScriptsRunResponse {
+    pub stat: Stat,
+    pub execution: Execution,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct ScriptsListResponse {
+    stat: Stat,
+    scripts: ScriptContainer,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct ScriptContainer {
+    script: Vec<RTMScript>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Default)]
+/// Represents a script in Remember The Milk.
+pub struct RTMScript {
+    /// Unique identifier for the script.
+    pub id: String,
+    /// Name of the script.
+    pub name: String,
+    /// Code of the script.
+    pub code: String,
+    /// Date and time when the script was created.
+    pub created: DateTime<Utc>,
+    /// Date and time when the script was last modified.
+    pub modified: DateTime<Utc>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct Execution {
+    pub id: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct AddTaskResponse {
     stat: Stat,
     transaction: Option<Transaction>,
@@ -495,6 +540,12 @@ struct SetDueDateResponse {
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 struct RTMResponse<T> {
     rsp: T,
+}
+
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
+struct AddNoteResponse {
+    stat: Stat,
+    note: RTMNote,
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
@@ -536,6 +587,11 @@ impl API {
     }
 
     #[cfg(test)]
+    ///
+    /// Create a new rememberthemilk API instance, with no user associated.
+    ///
+    /// The `api_key` and `api_secret` are for authenticating the application.
+    /// They can be [requested from rememberthemilk](https://www.rememberthemilk.com/services/api/).
     pub fn new_test(api_key: String, api_secret: String, server: mockito::ServerGuard) -> API {
         API {
             api_key,
@@ -565,6 +621,9 @@ impl API {
     }
 
     #[cfg(test)]
+    ///
+    /// The `config` will usually be generated from a previous session, where
+    /// [API::to_config] was used to save the session state.
     pub fn from_config_test(config: RTMConfig, server: mockito::ServerGuard) -> API {
         API {
             api_key: config.api_key.unwrap(),
@@ -908,6 +967,112 @@ impl API {
     ///
     /// * `timeline`: a timeline as retrieved using [API::get_timeline]
     /// * `list`, `taskseries` and `task` identify the task to tag.
+    /// * `url` is a String with url to add to this task.
+    ///
+    /// Requires a valid user authentication token.
+    pub async fn set_url(
+        &self,
+        timeline: &RTMTimeline,
+        list: &RTMLists,
+        taskseries: &TaskSeries,
+        task: &Task,
+        url: &str,
+    ) -> Result<(), Error> {
+        if let Some(ref tok) = self.token {
+            let params = &[
+                ("method", "rtm.tasks.setURL"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+                ("timeline", &timeline.0),
+                ("list_id", &list.id),
+                ("taskseries_id", &taskseries.id),
+                ("task_id", &task.id),
+                ("url", &url),
+            ];
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), params)
+                .await?;
+            let rsp = from_str::<RTMResponse<SetURLResponse>>(&response)?.rsp;
+            if let Stat::Ok = rsp.stat {
+                Ok(())
+            } else {
+                bail!("Error adding task")
+            }
+        } else {
+            bail!("Unable to fetch tasks")
+        }
+    }
+
+    /// Run a MilkScript script.
+    ///
+    /// * `timeline`: a timeline as retrieved using [API::get_timeline]
+    /// * `script_id`: identify of the script.
+    ///
+    /// Requires a valid user authentication token.
+    pub async fn scripts_run(
+        &self,
+        timeline: &RTMTimeline,
+        script_id: &str,
+    ) -> Result<String, Error> {
+        if let Some(ref tok) = self.token {
+            let params = &[
+                ("method", "rtm.scripts.run"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+                ("timeline", &timeline.0),
+                ("script_id", &script_id),
+            ];
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), params)
+                .await?;
+
+            let rsp = from_str::<RTMResponse<ScriptsRunResponse>>(&response)?.rsp;
+
+            if let Stat::Ok = rsp.stat {
+                Ok(rsp.execution.id)
+            } else {
+                bail!("Error running scripts {}", response)
+            }
+        } else {
+            bail!("Unable to run script")
+        }
+    }
+
+    /// Run a MilkScript script.
+    ///
+    /// * `timeline`: a timeline as retrieved using [API::get_timeline]
+    /// * `script_id`: identify of the script.
+    ///
+    /// Requires a valid user authentication token.
+    pub async fn scripts_list(&self) -> Result<Vec<RTMScript>, Error> {
+        if let Some(ref tok) = self.token {
+            let params = &[
+                ("method", "rtm.scripts.getList"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+            ];
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), params)
+                .await?;
+            let rsp = from_str::<RTMResponse<ScriptsListResponse>>(&response)?.rsp;
+
+            if let Stat::Ok = rsp.stat {
+                Ok(rsp.scripts.script)
+            } else {
+                bail!("Error running scripts {}", response)
+            }
+        } else {
+            bail!("Unable to run script")
+        }
+    }
+
+    /// Add one or more tags to a task.
+    ///
+    /// * `timeline`: a timeline as retrieved using [API::get_timeline]
+    /// * `list`, `taskseries` and `task` identify the task to tag.
     /// * `tags` is a slice of tags to add to this task.
     ///
     /// Requires a valid user authentication token.
@@ -1013,6 +1178,14 @@ impl API {
     }
 
     /// Set a task's due date.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeline` - A valid timeline
+    /// * `list_id` - The id of the list containing the task
+    /// * `taskseries_id` - The id of the task series
+    /// * `task_id` - The id of the task
+    /// * `due` - The due date
     pub async fn set_due_date(
         &self,
         timeline: &RTMTimeline,
@@ -1061,6 +1234,60 @@ impl API {
             }
         } else {
             bail!("Unable to fetch tasks")
+        }
+    }
+
+    /// Adds a note to a task.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeline` - A valid timeline
+    /// * `list_id` - The id of the list containing the task
+    /// * `taskseries_id` - The id of the task series
+    /// * `task_id` - The id of the task
+    /// * `note_title` - The title of the note
+    /// * `note_text` - The body text of the note
+    ///
+    /// # Returns
+    ///
+    /// If successful, returns the created note.
+    pub async fn add_note(
+        &self,
+        timeline: &RTMTimeline,
+        list_id: &str,
+        taskseries_id: &str,
+        task_id: &str,
+        note_title: &str,
+        note_text: &str,
+    ) -> Result<RTMNote, Error> {
+        if let Some(ref tok) = self.token {
+            let params = vec![
+                ("method", "rtm.tasks.notes.add"),
+                ("format", "json"),
+                ("api_key", &self.api_key),
+                ("auth_token", &tok),
+                ("timeline", &timeline.0),
+                ("list_id", list_id),
+                ("taskseries_id", taskseries_id),
+                ("task_id", task_id),
+                ("note_title", note_title),
+                ("note_text", note_text),
+            ];
+
+            let response = self
+                .make_authenticated_request(&self.get_rest_url(), &params)
+                .await?;
+            log::trace!("Add note response: {}", response);
+
+            let rsp = from_str::<RTMResponse<AddNoteResponse>>(&response)?.rsp;
+
+            if let Stat::Ok = rsp.stat {
+                Ok(rsp.note)
+            } else {
+                bail!("Error adding note")
+            }
+        } else {
+            bail!("Unable to add note: not authenticated")
         }
     }
 }
